@@ -1,8 +1,10 @@
 //materi diambil dari https://www.dicoding.com/academies/271/tutorials/14382?from=14502
 // mengimpor dotenv dan menjalankan konfigurasinya
 require('dotenv').config();
-//songs
 const Hapi = require('@hapi/hapi');
+const Jwt = require('@hapi/jwt');
+
+//songs
 const songs = require('./api/songs');
 const SongsService = require('./services/postgres/SongsService');
 const SongsValidator = require('./validator/songs');
@@ -13,10 +15,16 @@ const users = require('./api/users');
 const UsersService = require('./services/postgres/UsersService');
 const UsersValidator = require('./validator/users');
 
+//authentications
+const authentications = require('./api/authentications');
+const AuthenticationsService = require('./services/postgres/AuthenticationsService');
+const TokenManager = require('./tokenize/TokenManager');
+const AuthenticationsValidator = require('./validator/authentications');
+
 const init = async() => {
     const songsService = new SongsService();
     const usersService = new UsersService();
-
+    const authenticationsService = new AuthenticationsService();
 
     const server = Hapi.server({
         port: process.env.PORT,
@@ -27,7 +35,27 @@ const init = async() => {
             },
         },
     });
+    // registrasi plugin eksternal
+    await server.register([{
+        plugin: Jwt,
+    }, ]);
 
+    // mendefinisikan strategy autentikasi jwt
+    server.auth.strategy('songsapp_jwt', 'jwt', {
+        keys: process.env.ACCESS_TOKEN_KEY,
+        verify: {
+            aud: false,
+            iss: false,
+            sub: false,
+            maxAgeSec: process.env.ACCESS_TOKEN_AGE,
+        },
+        validate: (artifacts) => ({
+            isValid: true,
+            credentials: {
+                id: artifacts.decoded.payload.id,
+            },
+        }),
+    });
     // server.ext('onPreResponse', (request, h) => {
     //     // mendapatkan konteks response dari request
     //     const { response } = request;
@@ -48,26 +76,28 @@ const init = async() => {
 
 
     await server.register([{
-        plugin: songs,
-        options: {
-            service: songsService,
-            validator: SongsValidator,
+            plugin: songs,
+            options: {
+                service: songsService,
+                validator: SongsValidator,
+            },
+        }, {
+            plugin: users,
+            options: {
+                service: usersService,
+                validator: UsersValidator,
+            },
         },
-    }, {
-        plugin: users,
-        options: {
-            service: usersService,
-            validator: UsersValidator,
+        {
+            plugin: authentications,
+            options: {
+                authenticationsService,
+                usersService,
+                tokenManager: TokenManager,
+                validator: AuthenticationsValidator,
+            },
         },
-    }, ]);
-    // await server.register({
-    //     plugin: songs,
-    //     options: {
-    //         service: songsService,
-    //         validator: SongsValidator,
-    //     },
-
-    // });
+    ]);
 
     await server.start();
     console.log(`Server Run On ${server.info.uri}`);
