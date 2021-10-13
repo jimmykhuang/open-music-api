@@ -24,7 +24,7 @@ exports.up = (pgm) => {
             type: 'INTEGER',
             notNull: true,
         },
-        inserted_at: {
+        created_at: {
             type: 'TEXT',
             notNull: true,
         },
@@ -38,5 +38,3 @@ exports.up = (pgm) => {
 exports.down = (pgm) => {
     pgm.dropTable('songs');
 };
-
-//referensi dari https://www.dicoding.com/academies/271/tutorials/17468?from=14382

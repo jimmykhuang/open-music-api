@@ -127,4 +127,3 @@ class AuthenticationsHandler {
 }
 
 module.exports = AuthenticationsHandler;
-//referensi dari https://www.dicoding.com/academies/271/tutorials/17696?from=17680

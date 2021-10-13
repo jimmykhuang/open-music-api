@@ -11,4 +11,3 @@ const routes = (handler) => [{
 ];
 
 module.exports = routes;
-//referensi dari https: //www.dicoding.com/academies/271/tutorials/17588?from=17586

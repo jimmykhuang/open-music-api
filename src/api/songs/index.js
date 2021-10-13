@@ -9,4 +9,3 @@ module.exports = {
         server.route(routes(songsHandler));
     },
 };
-//referensi dari https://www.dicoding.com/academies/271/tutorials/14432?from=14427

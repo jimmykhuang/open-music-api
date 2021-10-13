@@ -1,30 +1,42 @@
-//materi diambil dari https://www.dicoding.com/academies/271/tutorials/14382?from=14502
 // mengimpor dotenv dan menjalankan konfigurasinya
 require('dotenv').config();
+
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
 
-//songs
+// songs
 const songs = require('./api/songs');
 const SongsService = require('./services/postgres/SongsService');
 const SongsValidator = require('./validator/songs');
+const ClientError = require('./exceptions/ClientError');
 
-//users
-
+// users
 const users = require('./api/users');
 const UsersService = require('./services/postgres/UsersService');
 const UsersValidator = require('./validator/users');
 
-//authentications
+// authentications
 const authentications = require('./api/authentications');
-const AuthenticationsService = require('./services/postgres/AuthenticationsService');
+const AuthenticationService = require('./services/postgres/AuthenticationsService');
 const TokenManager = require('./tokenize/TokenManager');
 const AuthenticationsValidator = require('./validator/authentications');
+
+// Playlist
+const playlists = require('./api/playlists');
+const PlaylistsService = require('./services/postgres/PlaylistsService');
+const PlaylistsValidator = require('./validator/playlists');
+
+// collaborations
+const collaborations = require('./api/collaborations');
+const CollaborationsService = require('./services/postgres/CollaborationsService');
+const CollaborationsValidator = require('./validator/collaborations');
 
 const init = async() => {
     const songsService = new SongsService();
     const usersService = new UsersService();
-    const authenticationsService = new AuthenticationsService();
+    const collaborationsService = new CollaborationsService();
+    const playlistsService = new PlaylistsService(collaborationsService);
+    const authenticationsService = new AuthenticationService();
 
     const server = Hapi.server({
         port: process.env.PORT,
@@ -35,6 +47,34 @@ const init = async() => {
             },
         },
     });
+
+    // Error handling
+    server.ext('onPreResponse', (request, h) => {
+        const { response } = request;
+        if (response instanceof ClientError) {
+            const newResponse = h.response({
+                status: 'fail',
+                message: response.message,
+            });
+            newResponse.code(response.statusCode);
+            return newResponse;
+        }
+        if (response instanceof Error) {
+            const { statusCode, payload } = response.output;
+            if (statusCode === 401) {
+                return h.response(payload).code(401);
+            }
+            const newResponse = h.response({
+                status: 'error',
+                message: 'Maaf, terjadi kegagalan pada server kami.',
+            });
+            console.log(response);
+            newResponse.code(500);
+            return newResponse;
+        }
+        return response.continue || response;
+    });
+
     // registrasi plugin eksternal
     await server.register([{
         plugin: Jwt,
@@ -56,24 +96,6 @@ const init = async() => {
             },
         }),
     });
-    // server.ext('onPreResponse', (request, h) => {
-    //     // mendapatkan konteks response dari request
-    //     const { response } = request;
-
-    //     if (response instanceof ClientError) {
-    //         // membuat response baru dari response toolkit sesuai kebutuhan error handling
-    //         const newResponse = h.response({
-    //             status: 'fail',
-    //             message: response.message,
-    //         });
-    //         newResponse.code(response.statusCode);
-    //         return newResponse;
-    //     }
-
-    //     // jika bukan ClientError, lanjutkan dengan response sebelumnya (tanpa terintervensi)
-    //     return response.continue || response;
-    // });
-
 
     await server.register([{
             plugin: songs,
@@ -81,7 +103,8 @@ const init = async() => {
                 service: songsService,
                 validator: SongsValidator,
             },
-        }, {
+        },
+        {
             plugin: users,
             options: {
                 service: usersService,
@@ -97,10 +120,25 @@ const init = async() => {
                 validator: AuthenticationsValidator,
             },
         },
+        {
+            plugin: playlists,
+            options: {
+                service: playlistsService,
+                validator: PlaylistsValidator,
+            },
+        },
+        {
+            plugin: collaborations,
+            options: {
+                collaborationsService,
+                playlistsService,
+                validator: CollaborationsValidator,
+            },
+        },
     ]);
 
     await server.start();
-    console.log(`Server Run On ${server.info.uri}`);
+    console.log(`Server berjalan pada ${server.info.uri}`);
 };
 
 init();
