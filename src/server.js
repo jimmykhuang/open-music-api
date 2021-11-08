@@ -44,11 +44,14 @@ const uploads = require('./api/uploads');
 const StorageService = require('./services/storage/StorageService');
 const UploadsValidator = require('./validator/uploads');
 
+const CacheService = require('./services/redis/CacheService');
+
 const init = async() => {
     const songsService = new SongsService();
     const usersService = new UsersService();
-    const collaborationsService = new CollaborationsService();
-    const playlistsService = new PlaylistsService(collaborationsService);
+    const cacheService = new CacheService();
+    const collaborationsService = new CollaborationsService(cacheService);
+    const playlistsService = new PlaylistsService(collaborationsService, cacheService);
     const authenticationsService = new AuthenticationService();
     const storageService = new StorageService(
         path.resolve(__dirname, 'api/uploads/file/pictures')
@@ -80,13 +83,13 @@ const init = async() => {
             if (statusCode === 401) {
                 return h.response(payload).code(401);
             }
-            const newResponse = h.response({
-                status: 'error',
-                message: 'Maaf, terjadi kegagalan pada server kami.',
-            });
-            console.log(response);
-            newResponse.code(500);
-            return newResponse;
+            // const newResponse = h.response({
+            //     status: 'error',
+            //     message: 'Maaf, terjadi kegagalan pada server kami.',
+            // });
+            // console.log(response);
+            // newResponse.code(500);
+            // return newResponse;
         }
         return response.continue || response;
     });
